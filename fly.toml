@@ -1,0 +1,8 @@
+app = 'bot-discord-black-surf-5973'
+primary_region = 'gru'
+
+[build]
+
+[[vm]]
+  memory = '1gb'
+  cpus = 1

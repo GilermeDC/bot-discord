@@ -70,14 +70,14 @@ client.on('messageCreate', async (msg) => {
     const channel = msg.member?.voice?.channel;
     if (!channel) return msg.reply('Entra em uma call primeiro!');
 
-    connection = joinVoiceChannel({
-      channelId: channel.id,
-      guildId: channel.guild.id,
-      adapterCreator: channel.guild.voiceAdapterCreator,
-      selfDeaf: false,
-      selfMute: false,
-      debug: true // 🔍 remover depois que funcionar
-    });
+  connection = joinVoiceChannel({
+  channelId: channel.id,
+  guildId: channel.guild.id,
+  adapterCreator: channel.guild.voiceAdapterCreator,
+  selfDeaf: false,
+  selfMute: false,
+  debug: true
+});
 
     connection.on('stateChange', (oldState, newState) => {
       console.log(`Conexão: ${oldState.status} -> ${newState.status}`);
