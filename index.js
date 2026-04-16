@@ -30,10 +30,9 @@ function sleep(ms) {
 }
 
 async function falar(texto) {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     const filePath = path.join(__dirname, `audio_${Date.now()}.mp3`);
 
-    // Salva o áudio e toca quando terminar
     gTTS.save(filePath, texto, (err) => {
       if (err) {
         console.error('Erro ao gerar áudio:', err);
@@ -60,8 +59,8 @@ async function falar(texto) {
   });
 }
 
-// ✅ Corrigido: 'ready' em vez de 'clientReady'
-client.on('ready', () => {
+// ✅ clientReady para discord.js v14
+client.on('clientReady', () => {
   console.log(`Logado como ${client.user.tag}`);
 });
 
@@ -76,19 +75,26 @@ client.on('messageCreate', async (msg) => {
       guildId: channel.guild.id,
       adapterCreator: channel.guild.voiceAdapterCreator,
       selfDeaf: false,
-      selfMute: false
+      selfMute: false,
+      debug: true // 🔍 remover depois que funcionar
     });
 
     connection.on('stateChange', (oldState, newState) => {
       console.log(`Conexão: ${oldState.status} -> ${newState.status}`);
     });
 
+    // 🔍 Log de desconexão com motivo
+    connection.on(VoiceConnectionStatus.Disconnected, (oldState, newState) => {
+      console.log('❌ Desconectado!', newState.reason, newState.closeCode);
+    });
+
     try {
       await entersState(connection, VoiceConnectionStatus.Ready, 20000);
       console.log('✅ Conectado na call!');
     } catch (error) {
-      console.error('❌ Erro ao conectar na call:', error);
-      return;
+      console.error('❌ Timeout ao conectar na call:', error.message);
+      connection.destroy();
+      return msg.reply('Não consegui entrar na call. Veja os logs.');
     }
 
     const membros = channel.members
