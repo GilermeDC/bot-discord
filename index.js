@@ -6,11 +6,13 @@ const {
   joinVoiceChannel,
   createAudioPlayer,
   createAudioResource,
-  StreamType,
   AudioPlayerStatus,
   VoiceConnectionStatus,
   entersState
 } = require('@discordjs/voice');
+const gTTS = require('node-gtts')('pt');
+const fs = require('fs');
+const path = require('path');
 
 const client = new Client({
   intents: [
@@ -27,55 +29,47 @@ function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-// 🔊 FUNÇÃO DE FALA (SEM gtts / SEM ffmpeg)
-const https = require('https');
-const fs = require('fs');
-
 async function falar(texto) {
-  return new Promise((resolve) => {
-    const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(texto)}&tl=pt&client=tw-ob`;
-    const path = './audio.mp3';
+  return new Promise((resolve, reject) => {
+    const filePath = path.join(__dirname, `audio_${Date.now()}.mp3`);
 
-    const file = fs.createWriteStream(path);
+    // Salva o áudio e toca quando terminar
+    gTTS.save(filePath, texto, (err) => {
+      if (err) {
+        console.error('Erro ao gerar áudio:', err);
+        return resolve();
+      }
 
-    https.get(url, (response) => {
-      response.pipe(file);
+      const resource = createAudioResource(filePath);
+      const player = createAudioPlayer();
 
-      file.on('finish', () => {
-        file.close();
+      connection.subscribe(player);
+      player.play(resource);
 
-        const resource = createAudioResource(path);
-        const player = createAudioPlayer();
-
-        connection.subscribe(player);
-        player.play(resource);
-
-        player.on(AudioPlayerStatus.Idle, () => {
-          try {
-            fs.unlinkSync(path);
-          } catch (e) {}
-          resolve();
-        });
+      player.on(AudioPlayerStatus.Idle, () => {
+        try { fs.unlinkSync(filePath); } catch (e) {}
+        resolve();
       });
-    }).on('error', (err) => {
-      console.error("Erro ao baixar áudio:", err);
-      resolve();
+
+      player.on('error', (err) => {
+        console.error('Erro no player:', err);
+        try { fs.unlinkSync(filePath); } catch (e) {}
+        resolve();
+      });
     });
   });
 }
 
-client.on('clientReady', () => {
+// ✅ Corrigido: 'ready' em vez de 'clientReady'
+client.on('ready', () => {
   console.log(`Logado como ${client.user.tag}`);
 });
 
 client.on('messageCreate', async (msg) => {
   if (msg.content === '!chamada') {
 
-    const channel = msg.member.voice.channel;
-
-    if (!channel) {
-      return msg.reply('Entra em uma call primeiro!');
-    }
+    const channel = msg.member?.voice?.channel;
+    if (!channel) return msg.reply('Entra em uma call primeiro!');
 
     connection = joinVoiceChannel({
       channelId: channel.id,
@@ -91,9 +85,9 @@ client.on('messageCreate', async (msg) => {
 
     try {
       await entersState(connection, VoiceConnectionStatus.Ready, 20000);
-      console.log("✅ Conectado na call!");
+      console.log('✅ Conectado na call!');
     } catch (error) {
-      console.error("❌ Erro ao conectar na call:", error);
+      console.error('❌ Erro ao conectar na call:', error);
       return;
     }
 
@@ -101,14 +95,14 @@ client.on('messageCreate', async (msg) => {
       .filter(m => !m.user.bot)
       .map(m => m.displayName);
 
-    await falar("Chamada K J H iniciando");
+    await falar('Chamada K J H iniciando');
 
     for (const nome of membros) {
       await falar(nome);
       await sleep(5000);
     }
 
-    await falar("Fim da chamada");
+    await falar('Fim da chamada');
   }
 });
 
