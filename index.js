@@ -12,10 +12,6 @@ const {
   entersState
 } = require('@discordjs/voice');
 
-const gtts = require('gtts');
-const fs = require('fs');
-const { spawn } = require('child_process');
-
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -31,27 +27,14 @@ function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-function falar(texto) {
+// 🔊 FUNÇÃO DE FALA (SEM gtts / SEM ffmpeg)
+async function falar(texto) {
   return new Promise((resolve) => {
-    const path = './audio.mp3';
-    const tts = new gtts(texto, 'pt-br');
+    try {
+      const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(texto)}&tl=pt&client=tw-ob`;
 
-    tts.save(path, async () => {
-      const ffmpeg = spawn('ffmpeg', [
-        '-i', path,
-        '-f', 's16le',
-        '-ar', '48000',
-        '-ac', '2',
-        'pipe:1'
-      ]);
-
-      ffmpeg.on('error', (err) => {
-        console.error('Erro no ffmpeg:', err);
-        resolve();
-      });
-
-      const resource = createAudioResource(ffmpeg.stdout, {
-        inputType: StreamType.Raw
+      const resource = createAudioResource(url, {
+        inputType: StreamType.Arbitrary
       });
 
       const player = createAudioPlayer();
@@ -59,21 +42,14 @@ function falar(texto) {
 
       player.play(resource);
 
-      try {
-        await entersState(player, AudioPlayerStatus.Playing, 5000);
-      } catch (err) {
-        console.error("Erro ao iniciar áudio:", err);
-        resolve();
-        return;
-      }
-
       player.on(AudioPlayerStatus.Idle, () => {
-        try {
-          fs.unlinkSync(path);
-        } catch (e) {}
         resolve();
       });
-    });
+
+    } catch (err) {
+      console.error("Erro ao falar:", err);
+      resolve();
+    }
   });
 }
 
