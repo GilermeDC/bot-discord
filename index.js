@@ -28,28 +28,39 @@ function sleep(ms) {
 }
 
 // 🔊 FUNÇÃO DE FALA (SEM gtts / SEM ffmpeg)
+const https = require('https');
+const fs = require('fs');
+
 async function falar(texto) {
   return new Promise((resolve) => {
-    try {
-      const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(texto)}&tl=pt&client=tw-ob`;
+    const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(texto)}&tl=pt&client=tw-ob`;
+    const path = './audio.mp3';
 
-      const resource = createAudioResource(url, {
-        inputType: StreamType.Arbitrary
+    const file = fs.createWriteStream(path);
+
+    https.get(url, (response) => {
+      response.pipe(file);
+
+      file.on('finish', () => {
+        file.close();
+
+        const resource = createAudioResource(path);
+        const player = createAudioPlayer();
+
+        connection.subscribe(player);
+        player.play(resource);
+
+        player.on(AudioPlayerStatus.Idle, () => {
+          try {
+            fs.unlinkSync(path);
+          } catch (e) {}
+          resolve();
+        });
       });
-
-      const player = createAudioPlayer();
-      connection.subscribe(player);
-
-      player.play(resource);
-
-      player.on(AudioPlayerStatus.Idle, () => {
-        resolve();
-      });
-
-    } catch (err) {
-      console.error("Erro ao falar:", err);
+    }).on('error', (err) => {
+      console.error("Erro ao baixar áudio:", err);
       resolve();
-    }
+    });
   });
 }
 
